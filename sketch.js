@@ -103,6 +103,7 @@ let wordModeBuffer = null; // Word 모드용 오프스크린 버퍼
 // 박스 외곽선과 번호 라벨을 그리는 헬퍼
 function drawBoxOutlineAndLabel(x, y) {
   stroke(0);
+  strokeWeight(0.5);
   noFill();
   rect(x, y, BOX_WIDTH, BOX_HEIGHT);
   // 라벨 텍스트 (작게)
@@ -767,7 +768,7 @@ function draw() {
     return ranges.some(([start, end]) => boxNumber >= start && boxNumber <= end);
   }
 
-  // 고정된 격자로 박스 테두리 그리기 (특정 범위만)
+  // 격자 테두리는 마지막 오버레이 단계에서 한 번에 그린다.
   for (let row = -10; row <= 10; row++) {
     for (let col = -15; col <= 15; col++) {
       const currentBoxX = centerBoxX + col * BOX_SPACING;
@@ -776,7 +777,7 @@ function draw() {
       // 박스 번호 계산
       const boxNumber = (row + 10) * 31 + (col + 15) + 1;
 
-      // 박스 테두리는 그리지 않음 (숨김)
+      // 박스 테두리 오버레이에서 처리
     }
   }
 
