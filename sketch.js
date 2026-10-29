@@ -99,6 +99,7 @@ let glyphBuffer = null; // 텍스트를 미리 렌더링한 버퍼 (모든 박�
 let glyphAnchorX = 'center'; // 'center' | 'left' : 문자열이 어느 기준점에서 시작하는지
 let boxCounter = 0; // 프레임 내 박스 라벨 번호
 let wordModeBuffer = null; // Word 모드용 오프스크린 버퍼
+let outlineFrame = null; // Vector drawing commands for the most recently displayed frame.
 
 // 박스 외곽선과 번호 라벨을 그리는 헬퍼
 function drawBoxOutlineAndLabel(x, y) {
@@ -212,6 +213,7 @@ function drawGlyphInBox(boxX, boxY, dx, extraX = 0, extraY = 0) {
   ctx.beginPath();
   ctx.rect(boxX, boxY, BOX_WIDTH, BOX_HEIGHT);
   ctx.clip();
+  const exportClip = PatternExport.clipRect(ctx, pixelDensity(), boxX, boxY, BOX_WIDTH, BOX_HEIGHT);
 
   // 변환 적용 (회전 + 세로 스케일링)
   push();
@@ -222,6 +224,7 @@ function drawGlyphInBox(boxX, boxY, dx, extraX = 0, extraY = 0) {
   scale(1, scaleY); // Y축 스케일링
   translate(-BOX_WIDTH / 2, -BOX_HEIGHT / 2); // 원래 위치로 복원
   image(glyphBuffer, gx - boxX, gy - boxY);
+  PatternExport.captureImage(outlineFrame, ctx, pixelDensity(), glyphBuffer, gx - boxX, gy - boxY, exportClip);
   pop();
 
   ctx.restore();
@@ -334,41 +337,97 @@ function setup() {
   speedSlider.size(230);
   speedSlider.style('width', '230px');
 
+  // Let the description set its natural height so neither text nor the final
+  // line is clipped. The remaining footer elements follow it with small gaps.
+  const footer = createDiv();
+  footer.position(20, 620);
+  footer.style('width', '234px');
+  footer.style('display', 'flex');
+  footer.style('flex-direction', 'column');
+  footer.style('gap', '8px');
+
   // 점선
   let dividerLine = createDiv('');
-  dividerLine.position(20, 640);
+  dividerLine.parent(footer);
   dividerLine.style('width', '233px');
   dividerLine.style('border-top', '2px dotted #000');
+  dividerLine.style('margin', '8px 0');
   dividerLine.style('z-index', '1000');
 
     // 점선
   let dividerLine2 = createDiv('');
-  dividerLine2.position(20, 870);
   dividerLine2.style('width', '233px');
   dividerLine2.style('border-top', '2px dotted #000');
+  dividerLine2.style('margin', '8px 0');
   dividerLine2.style('z-index', '1000');
 
   // 설명글 추가
   let descriptionText = createP('This work approaches letterforms through the logic of the grid, observing how they shift when gaps appear or individual parts take on different shapes. It experiments with recombining these fragments to question where a letter ends and a graphic begins.');
-  descriptionText.position(20, 665);
+  descriptionText.parent(footer);
   descriptionText.style('width', '233px');
   descriptionText.style('margin', '0');
   descriptionText.style('font-family', "'Courier New', Courier, monospace");
   descriptionText.style('font-size', '13.5px');
   descriptionText.style('font-weight', '400');
   descriptionText.style('color', '#000');
-  descriptionText.style('line-height', '1.4');
+  descriptionText.style('line-height', '1.3');
+  dividerLine2.parent(footer);
 
   // 저작권 문구 추가
   let copyrightText = createP('All right reserved Dongjun Choi @COPYRIGHT 2026');
-  copyrightText.position(20, 890);
+  copyrightText.parent(footer);
   copyrightText.style('width', '233px');
   copyrightText.style('margin', '0');
   copyrightText.style('font-family', "'Courier New', Courier, monospace");
   copyrightText.style('font-size', '13.5px');
   copyrightText.style('font-weight', '400');
   copyrightText.style('color', '#000');
-  copyrightText.style('line-height', '1.4');
+  copyrightText.style('line-height', '1.3');
+
+  const instagramLink = createA('https://www.instagram.com/dongjun.obj/', '@dongjun.obj', '_blank');
+  instagramLink.parent(footer);
+  instagramLink.attribute('rel', 'noopener noreferrer');
+  instagramLink.style('font-family', "'Courier New', Courier, monospace");
+  instagramLink.style('font-size', '13.5px');
+  instagramLink.style('line-height', '1.3');
+  instagramLink.style('color', '#000000');
+
+  const exportButton = createButton('Export');
+  exportButton.parent(footer);
+  // Match the Word / Sentence control's outer dimensions (230 + 4 by 30 + 4).
+  exportButton.size(234, 34);
+  exportButton.style('box-sizing', 'border-box');
+  exportButton.style('border', '2px solid #000000');
+  exportButton.style('border-radius', '20px');
+  exportButton.style('background-color', '#ffffff');
+  exportButton.style('color', '#000000');
+  exportButton.style('font-family', "'Courier New', Courier, monospace");
+  exportButton.style('font-size', '14px');
+  exportButton.style('font-weight', '400');
+  exportButton.style('display', 'flex');
+  exportButton.style('align-items', 'center');
+  exportButton.style('justify-content', 'center');
+  exportButton.style('cursor', 'pointer');
+  exportButton.style('flex-shrink', '0');
+  exportButton.style('margin', '6px 0');
+  exportButton.mousePressed(async () => {
+    exportButton.attribute('disabled', '');
+    exportButton.html('Exporting…');
+    try {
+      await PatternExport.exportCanvas(document.querySelector('canvas.p5Canvas'), {
+        imageMode: useImage && Boolean(uploadedImage),
+        width,
+        height,
+        scene: outlineFrame,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      window.alert(`Export failed: ${error.message}`);
+    } finally {
+      exportButton.removeAttribute('disabled');
+      exportButton.html('Export');
+    }
+  });
 
   // 파일 입력 생성 (숨김 처리)
   fileInput = createFileInput(handleFile);
@@ -643,6 +702,7 @@ function handleFile(file) {
 }
 
 function draw() {
+  outlineFrame = [];
   background(255); // 흰색 배경
 
   // Word 모드: 0.2배로 축소해서 그리기
@@ -670,6 +730,8 @@ function draw() {
     for (let i = -sideBoxes; i <= sideBoxes; i++) {
       const dx = -i * gridShiftXValue; // 그리드 가로 이동량 슬라이더로 조절
       const pg = buffers[bufferIndex];
+      pg.outlineRuns = null;
+      pg.outlineOpaque = true;
 
       pg.clear(); // 이전 내용 지우기
       pg.background(255);
@@ -690,7 +752,7 @@ function draw() {
         pg.textAlign(CENTER, CENTER);
         pg.fill(0);
         pg.textSize(textSizeValue);
-        pg.text(displayText, dx, 0);
+        PatternExport.captureText(pg, () => pg.text(displayText, dx, 0));
       }
       pg.pop();
 
@@ -736,7 +798,7 @@ function draw() {
       glyphBuffer.textAlign(CENTER, CENTER); // Sentence와 동일한 중앙 정렬
       glyphBuffer.fill(0);
       glyphBuffer.textSize(textSizeValue);
-      glyphBuffer.text(displayText, 0, 0);
+      PatternExport.captureText(glyphBuffer, () => glyphBuffer.text(displayText, 0, 0));
     }
     glyphBuffer.pop();
 
@@ -810,6 +872,7 @@ function draw() {
       scale(1, scaleY); // Y축만 스케일링
       translate(-BOX_WIDTH / 2, -BOX_HEIGHT / 2); // 원래 위치로 복원
       image(buffers[bufferIndex], 0, 0);
+      PatternExport.captureImage(outlineFrame, drawingContext, pixelDensity(), buffers[bufferIndex], 0, 0);
       pop();
 
       // 가운데 박스(i===0)의 수직 복사들: 위로(+diag), 아래로(-diag)

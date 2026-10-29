@@ -24,6 +24,15 @@ A p5.js-based interactive web application that allows users to apply various vis
    - **Vertical Shift**: Stretch or compress vertically
 4. Toggle between text and image modes using the button
 
+## Export
+
+- The Instagram link below the copyright opens `https://www.instagram.com/dongjun.obj/`.
+- **Export** saves the current canvas frame without the controls. Animation is captured at the moment of the click.
+- Text mode downloads an **EPS** with the current screen dimensions. It records the actual text layout and transforms before rasterization, and uses Helvetica Bold's PostScript `charpath` outlines for smooth edges. Clipping, rotation, compression, spacing, multiline layout and the displayed animation frame are preserved. The EPS reader must provide Helvetica Bold; the font itself is not embedded. Western characters (Latin-1 and common European punctuation) are supported; unsupported fallback characters produce an explicit error rather than pixel tracing or missing glyphs.
+- Image mode downloads a **PNG** at **2000px wide**, keeping the current canvas aspect ratio. The current frame is resized; exporting does not change the on-screen layout.
+- Export verification: `node --test tests/export.test.js`.
+- The footer description uses its natural height so the full paragraph is visible. The second dotted rule, copyright, Instagram link and Export follow it with compact spacing.
+
 ## Technologies Used
 
 - p5.js for graphics and interaction
